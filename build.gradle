@@ -56,14 +56,11 @@ java {
     withSourcesJar()
 }
 
-processResources {
-        dependsOn downloadTranslations
-}
-
 jar {
 	from "LICENSE"
 }
 
+/*
 import com.modrinth.minotaur.TaskModrinthUpload
 
 modrinth {
@@ -71,7 +68,7 @@ modrinth {
     versionName = project.archivesBaseName
     uploadFile = remapJar
 }
-
+ 
 curseforge {
     apiKey = System.getenv("CURSEFORGE_TOKEN") ?: "0"
     project {
@@ -86,3 +83,4 @@ curseforge {
         forgeGradleIntegration = false
     }
 }
+*/
