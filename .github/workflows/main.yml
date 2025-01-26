@@ -1,0 +1,77 @@
+name: CI Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mc_ver: [1.21.4]
+    steps:
+      - name: Get Latest Version
+        shell: pwsh
+        run: |
+          $ResponseVersions = Invoke-RestMethod -Method Get -Uri https://launchermeta.mojang.com/mc/game/version_manifest.json
+          $LatestVersion = $ResponseVersions.latest.release
+          Write-Host "Latest Version: $LatestVersion"
+          $ExistingVersions = @('1.21.4') # Current versions in the matrix
+          $UpdatedVersions = $ExistingVersions + $LatestVersion
+          $UniqueVersions = $UpdatedVersions | Sort-Object -Unique
+          Write-Host "Unique Versions: $($UniqueVersions -join ',')"
+          echo "mc_ver=[$($UniqueVersions -join ',')]" >> $env:GITHUB_ENV
+
+      - name: Set Matrix
+        shell: bash
+        run: |
+          echo "strategy.matrix.mc_ver=$mc_ver" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle
+            cache/
+          key: gradle-${{ matrix.MC_VER }}
+          restore-keys: |
+            gradle-
+
+      - name: Run Gradle tasks
+        run: |
+          ./gradlew clean -PmcVer="${{ matrix.MC_VER }}" --gradle-user-home cache/
+          ./gradlew build -PmcVer="${{ matrix.MC_VER }}" --gradle-user-home cache/
+          ./gradlew mergeJars -PmcVer="${{ matrix.MC_VER }}" --gradle-user-home cache/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NightlyBuild_${{ matrix.MC_VER }}
+          path: |
+            Merged/*.jar
+            fabric/build/libs/*.jar
+            forge/build/libs/*.jar
+            neoforge/build/libs/*.jar
+            !fabric/build/libs/*-all.jar
+            !fabric/build/libs/*-dev.jar
+            !fabric/build/libs/*-sources.jar
+
+
